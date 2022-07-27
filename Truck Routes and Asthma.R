@@ -11,7 +11,7 @@ url_ct_asthma_rate <- URLencode("https://chronicdata.cdc.gov/resource/6vp6-wxuq.
 
 ct_asthma_rate <- read_csv(url_ct_asthma_rate)
 
-#clean up the data, use fips code to labl by boro 
+#clean up the data, use fips code to label by boro 
 clean_ct_asthma <- ct_asthma_rate %>% 
   clean_names() %>% #clean names
   select(year, uniqueid, data_value, low_confidence_limit, high_confidence_limit, populationcount, geolocation, tractfips) %>% #select columns of interest
@@ -22,15 +22,15 @@ clean_ct_asthma <- ct_asthma_rate %>%
                        ifelse(boro_code == "047", "Brooklyn",
                               ifelse(boro_code == "061", "Manhattan",
                                      ifelse(boro_code == "081", "Queens",
-                                            ifelse(boro_code == "085", "Staten Island", "no")))))) %>% 
-  mutate(tract_code = substr(tractfips,6,11))
+                                            ifelse(boro_code == "085", "Staten Island", "no")))))) %>% #attach boro names
+  mutate(tract_code = substr(tractfips,6,11)) #pull out the census tract geocode 
 
 glimpse(clean_ct_asthma)
 
 
 #-----------------------------------------------------------
 
-###Practice with Census Tracts within 2 tenths of a mile from truck routes
+###Practice with Census Tracts within 2 tenths of a mile from truck routes, part of my exploratory analysis I did not use
 #load census tracts fully within two tenths of a mile of a truck route
 #two_tenths_mile_cts <- read_csv("/Users/jamie/Documents/MSPP/Summer/Data Studio/ProjectTRA/CTs_in_twotenths_mile.csv")
 #select just the ct code and create a column that indicates these census tracts are fully within .2 miles of a truck route
@@ -87,7 +87,7 @@ glimpse(clean_ct_asthma)
 #-----------------------------------------------------------
 
 ###CREATING A PROXIMITY SCORE FOR EACH CENSUS TRACT IN RELATION TO TRUCK ROUTES
-#Load CSVs of cts proportions in each buffer zone 
+#Load CSVs of cts proportions in each buffer zone (see READ ME file for instructions of how to calculate these in QGIS)
 
 prop_cts_5hdrths <- read_csv("/Users/jamie/Documents/MSPP/Summer/Data Studio/ProjectTRA/Proportions of CTs by distance from TRs/prop_area_5hundredths.csv") %>% 
   select(boro_ct201, prop_area_5hundredths) %>% 
@@ -157,10 +157,10 @@ cd_traffic_density <- read_csv("/Users/jamie/Documents/MSPP/Summer/Data Studio/P
   clean_names()#load in millions of miles per year of truck traffic
   
 ct_traffic_density <- left_join(prop_ct_by_cd, cd_traffic_density, by = c("boro_cd" = "geography_id")) %>% 
-  na.omit() %>% 
-  mutate(prop_mmpy = prop_ct_in_cd * data_value) %>% 
+  na.omit() %>% #drop columns without matches
+  mutate(prop_mmpy = prop_ct_in_cd * data_value) %>% #weight the data
   group_by(boro_ct201) %>% 
-  summarise(wghtd_avg_mmpy = sum(prop_mmpy))
+  summarise(wghtd_avg_mmpy = sum(prop_mmpy)) #sum the weighted data for the average
 
 #--------------------------------------------------------------------
 ###Clean-up Household Income Data 
@@ -186,7 +186,7 @@ working_med_income$med_income[working_med_income$med_income == "250,000+"]<- 250
 
 clean_med_income <- working_med_income %>% 
   mutate(med_income = as.double(med_income)) %>% #make med_income type double (numeric) 
-  mutate(med_income_10thou = med_income/10000)
+  mutate(med_income_10thou = med_income/10000) #divide median income by 10,000 so that the regression inputs and outputs are all on a similar scale
 glimpse(clean_med_income)
 
 #-------------------------------------------------------------------
@@ -233,8 +233,8 @@ ggplot(clean_complete, aes(prox_score, asthma_rate)) + #graph of the regression 
   geom_point() +
   stat_smooth(method = lm)
 
-options(scipen=999) #turns off scientific notation, change 999 to 0 to turn on 
-#multiple regression 
+options(scipen=999) #turns off scientific notation (it was annoying me), change 999 to 0 to turn on 
+#multiple regression for the whole city 
 multi_model <- lm(asthma_rate ~ prox_score + med_income_10thou + wghtd_avg_mmpy, data = clean_complete)
 summary(multi_model)
 write.csv(as.data.frame(summary(multi_model)$coef), file="multi_model.csv")
@@ -283,12 +283,12 @@ multi_model_st <- lm(asthma_rate ~ prox_score + med_income_10thou + wghtd_avg_mm
 summary(multi_model_st)
 
 
-#export csv's
+#export csv
 
 write_csv(clean_complete, "clean_complete_asthma_proximity_data.csv")
 
 #--------------------------------------------------
-### data manipulation for visualizations 
+### data manipulation for visualizations not used in the analysis, just for fun in the policy brief 
 
 ed_child_asthma <- read_csv("/Users/jamie/Documents/MSPP/Summer/Data Studio/ProjectTRA/UHF Asthma Data/Asthma Emergency Department Visits.csv", skip = 5) %>% 
   clean_names() %>% 
